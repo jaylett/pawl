@@ -259,8 +259,6 @@ if __name__ == '__main__':
         num = args[0]
         name = args[1]
         directory = os.path.join('/media/All/Doctor Who/Classic/', "%s - %s" % (num, name,))
-        episode_offset = 0
-        feature_offset = 0
     else:
         # TV: give name of series and season as two args, first episode number
         # as optional third (else try to ponder from directory), first
@@ -269,35 +267,39 @@ if __name__ == '__main__':
         season = int(args[1])
         directory = os.path.join('/media/All/TV Shows/', series, 'Season %i' % season)
         num = season
-        if len(args)>2:
-            episode_offset = int(args[2])
-        else:
-            # PONDER
-            episode_offset = 0
-            while file in os.listdir(directory):
-                bits = file.split('x')
-                if len(bits)>1:
-                    ep_bits = bits[1].split('-')
-                    if episode_offset < int(ep_bits[-1]):
-                        episode_offset = int(ep_bits[-1])
-        if len(args)>3:
-            feature_offset = int(args[3])
-        else:
-            feature_offset = 0
-            while file in os.listdir(directory):
-                bits = file.split('x')
-                if len(bits)>1:
-                    # Syntax: <n>x00 - 01 etc.
-                    ep_bits = bits[1].split('-')
-                    if ep_bits[0].strip() == '00':
-                        if feature_offset < int(ep_bits[-1]):
-                            feature_offset = int(ep_bits[-1])
+
+    if len(args)>2:
+        episode_offset = int(args[2])
+    else:
+        # PONDER
+        episode_offset = 0
+        for file in os.listdir(directory):
+            file = file.split('.')[0]
+            bits = file.split('x')
+            if len(bits)>1:
+                ep_bits = bits[1].split('-')
+                if episode_offset < int(ep_bits[-1]):
+                    episode_offset = int(ep_bits[-1])
+    if len(args)>3:
+        feature_offset = int(args[3])
+    else:
+        feature_offset = 0
+        for file in os.listdir(directory):
+            file = file.split('.')[0]
+            bits = file.split('x')
+            if len(bits)>1:
+                # Syntax: <n>x00 - 01 etc.
+                ep_bits = bits[1].split('-')
+                if ep_bits[0].strip() == '00':
+                    if feature_offset < int(ep_bits[-1]):
+                        feature_offset = int(ep_bits[-1])
+
     if options.test:
         print (u"Ripping to %s as %sx..." % (directory, num,)).encode('utf-8')
-        if not skip_episodes:
-            print (u"Episodes from %i" % (episode_offset,)).encode('utf-8')
+        if not ignore_episodes:
+            print (u"Episodes from %i" % (episode_offset+1,)).encode('utf-8')
         if rip_features:
-            print (u"Features from %i" % (feature_offset,)).encode('utf-8')
+            print (u"Features from %i" % (feature_offset+1,)).encode('utf-8')
     else:
         if not os.path.isdir(directory) and not os.path.exists(directory):
             os.mkdir(directory)
