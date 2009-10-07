@@ -1,0 +1,30 @@
+pawl
+====
+
+Very simple driver around Handbrake CLI, to make ripping TV show DVDs
+easier.  Generally it should be obvious; however it has my preferred
+layout hard-coded, so it may upset you in various unspecified ways. It
+also has the Handbrake CLI path hardcoded, but that's not difficult to
+fix.
+
+It detects what are 'episodes' and what are (special) 'features'
+heuristically, and seems to be right better than 90% of the time based
+on an utterly non-representative sample of some Doctor Who DVDs I've
+ripped. In fact, the other mode (for shows which I store in a
+different filesystem layout) is completely untested at this point, as
+are some of the more esoteric features like being able to rip both
+disks of special releases without it blatting some or all of the files
+from the first disk.
+
+And finally, it doesn't invoke Handbrake CLI to do the ripping,
+because on my Snow Leopard box at least the child process never exits,
+so the entire system hangs. Instead, it's hardcoded to use 'weird'
+mode, where pawl just outputs the commands you have to run (all nicely
+separated by &&, so you can just cut and paste back into the
+terminal).
+
+It's entirely possible this is utterly useless to anyone other than me
+;-)
+
+James Aylett
+<http://tartarus.org/james/>
