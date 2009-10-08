@@ -19,6 +19,7 @@ handbrake_cli = '/Users/jaylett/HandBrakeCLI'
 
 rip_features = False
 ignore_episodes = False
+ignore_specials = False
 
 script = []
 
@@ -225,14 +226,14 @@ def process_disk(device, directory, prefix, episode_offset=0, feature_offset=0):
     #      generally, these are "all episodes as one title"
     #   ignore_episodes skips detected episodes (for ripping features from
     #      my earlier attempts when I ignored them)
-    if start > 0:
+    if start > 0 and not ignore_specials:
         for i in range(0, start):
             if titles[i].get_duration() < 60*60 or rip_features:
                 rip_title(device, preset, titles[i], directory, "%s00 - " % prefix, i+1+feature_offset)
     if not ignore_episodes:
         for i in range(start, end):
             rip_title(device, preset, titles[i], directory, prefix, i-start+1+episode_offset)
-    if end < len(titles):
+    if end < len(titles) and not ignore_specials:
         for i in range(end, len(titles)):
             if titles[i].get_duration() < 60*60 or rip_features:
                 rip_title(device, preset, titles[i], directory, "%s00 - " % prefix, i-end+start+1+feature_offset)
@@ -246,12 +247,14 @@ if __name__ == '__main__':
     parser.add_option('-d', '--device', dest='device', help='Set device', default='/dev/disk2', action='store')
     parser.add_option('-p', '--preset', dest='preset', help='Override default preset', default=DEFAULT_PRESET, action='store')
     parser.add_option('-t', '--test', dest='test', help="Test, don't actually do anything", default=False, action='store_true')
-    parser.add_option('-F', '--include-features', dest='features', help="Rip features", default=False, action='store_true')
-    parser.add_option('-S', '--skip-episodes', dest='episodes', help="Don't rip episodes", default=True, action='store_false')
+    parser.add_option('-F', '--include-features', dest='features', help="Rip feature-length episodes (requires ripping special features)", default=False, action='store_true')
+    parser.add_option('-E', '--skip-episodes', dest='episodes', help="Don't rip normal episodes", default=True, action='store_false')
+    parser.add_option('-S', '--skip-special-features', dest='specials', help="Don't rip special features", default=True, action='store_false')
     (options, args) = parser.parse_args()
 
     rip_features = options.features
     ignore_episodes = not options.episodes
+    ignore_specials = not options.specials
 
     preset = options.preset
     if options.doctorwho:
@@ -278,11 +281,13 @@ if __name__ == '__main__':
             bits = file.split('x')
             if len(bits)>1:
                 ep_bits = bits[1].split('-')
-                if episode_offset < int(ep_bits[-1]):
-                    episode_offset = int(ep_bits[-1])
+                if ep_bits[0].strip()!='00':
+                    if episode_offset < int(ep_bits[-1]):
+                        episode_offset = int(ep_bits[-1])
     if len(args)>3:
         feature_offset = int(args[3])
     else:
+        # PONDER
         feature_offset = 0
         for file in os.listdir(directory):
             file = file.split('.')[0]
@@ -297,9 +302,11 @@ if __name__ == '__main__':
     if options.test:
         print (u"Ripping to %s as %sx..." % (directory, num,)).encode('utf-8')
         if not ignore_episodes:
-            print (u"Episodes from %i" % (episode_offset+1,)).encode('utf-8')
+            print (u"  Episodes from %i" % (episode_offset+1,)).encode('utf-8')
+        if not ignore_specials:
+            print (u"  Special features from %i" % (feature_offset+1,)).encode('utf-8')
         if rip_features:
-            print (u"Features from %i" % (feature_offset+1,)).encode('utf-8')
+            print "  Ripping feature length episodes."
     else:
         if not os.path.isdir(directory) and not os.path.exists(directory):
             os.mkdir(directory)
