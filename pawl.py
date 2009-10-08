@@ -273,7 +273,7 @@ if __name__ == '__main__':
 
     if len(args)>2:
         episode_offset = int(args[2])
-    else:
+    elif os.path.isdir(directory):
         # PONDER
         episode_offset = 0
         for file in os.listdir(directory):
@@ -284,9 +284,11 @@ if __name__ == '__main__':
                 if ep_bits[0].strip()!='00':
                     if episode_offset < int(ep_bits[-1]):
                         episode_offset = int(ep_bits[-1])
+    else:
+        episode_offset = 0
     if len(args)>3:
         feature_offset = int(args[3])
-    else:
+    elif os.path.isdir(directory):
         # PONDER
         feature_offset = 0
         for file in os.listdir(directory):
@@ -298,6 +300,8 @@ if __name__ == '__main__':
                 if ep_bits[0].strip() == '00':
                     if feature_offset < int(ep_bits[-1]):
                         feature_offset = int(ep_bits[-1])
+    else:
+        feature_offset = 0
 
     if options.test:
         print (u"Ripping to %s as %sx..." % (directory, num,)).encode('utf-8')
