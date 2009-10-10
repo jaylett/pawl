@@ -15,7 +15,23 @@ import subprocess
 import sys
 
 DEFAULT_PRESET = 'Television'
-handbrake_cli = '/Users/jaylett/HandBrakeCLI'
+
+handbrake_cli = None
+if os.environ.has_key('HANDBRAKE'):
+    handbrake_cli = os.environ['HANDBRAKE']
+else:
+    locs = [ '/usr/bin/', '/usr/local/bin/', '/Users/jaylett', ]
+    excs = [ 'HandBrakeCLI', ] # put whatever it is on linux etc. here
+    for t in locs:
+        for x in excs:
+            handbrake_cli = os.path.join(t, x)
+            if os.path.exists(handbrake_cli):
+                break
+            else:
+                handbrake_cli = None
+    if handbrake_cli == None:
+        handbrake_cli = 'HandBrakeCLI' # assume it's on the path
+        # note that this is the Mac OS X name
 
 rip_features = False
 ignore_episodes = False
