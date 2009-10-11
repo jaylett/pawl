@@ -43,6 +43,19 @@ script = []
 # so it doesn't hang instead of exit after ripping
 weird = True
 
+def mkdir_p(path):
+    bits = []
+    while path!='' and path!='/':
+        (path, last) = os.path.split(path)
+        bits.insert(0, last)
+    path = '/'
+    for bit in bits:
+        path = os.path.join(path, bit)
+        if not os.path.exists(path):
+            os.mkdir(path)
+        elif not os.path.isdir(path):
+            raise RuntimeError((u'Path %s already exists as non-dir.' % path).encode('utf-8'))
+
 def drive_handbrake(device, preset, options, test=False, simple=False):
     args = [handbrake_cli, '-i', device, '-Z', preset] + list(options)
     if test:
@@ -334,8 +347,10 @@ if __name__ == '__main__':
         if rip_features:
             print "  Ripping feature length episodes."
     else:
-        if not os.path.isdir(directory) and not os.path.exists(directory):
-            os.mkdir(directory)
+        if not os.path.exists(directory):
+            mkdir_p(directory)
+        elif not os.path.isdir(directory):
+            print (u"%s is not a directory." % directory).encode('utf-8')
         process_disk(
             options.device,
             directory,
