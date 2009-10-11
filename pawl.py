@@ -293,13 +293,16 @@ if __name__ == '__main__':
         # PONDER
         episode_offset = 0
         for file in os.listdir(directory):
-            file = file.split('.')[0]
-            bits = file.split('x')
-            if len(bits)>1:
-                ep_bits = bits[1].split('-')
-                if ep_bits[0].strip()!='00':
-                    if episode_offset < int(ep_bits[-1]):
-                        episode_offset = int(ep_bits[-1])
+            try:
+                file = file.split('.')[0]
+                bits = file.split('x')
+                if len(bits)>1:
+                    ep_bits = bits[1].split('-')
+                    if ep_bits[0].strip()!='00':
+                        if episode_offset < int(ep_bits[-1]):
+                            episode_offset = int(ep_bits[-1])
+            except:
+                pass
     else:
         episode_offset = 0
     if len(args)>3:
@@ -308,14 +311,17 @@ if __name__ == '__main__':
         # PONDER
         feature_offset = 0
         for file in os.listdir(directory):
-            file = file.split('.')[0]
-            bits = file.split('x')
-            if len(bits)>1:
-                # Syntax: <n>x00 - 01 etc.
-                ep_bits = bits[1].split('-')
-                if ep_bits[0].strip() == '00':
-                    if feature_offset < int(ep_bits[-1]):
-                        feature_offset = int(ep_bits[-1])
+            try:
+                file = file.split('.')[0]
+                bits = file.split('x')
+                if len(bits)>1:
+                    # Syntax: <n>x00 - 01 etc.
+                    ep_bits = bits[1].split('-')
+                    if ep_bits[0].strip() == '00':
+                        if feature_offset < int(ep_bits[-1]):
+                            feature_offset = int(ep_bits[-1])
+            except:
+                pass
     else:
         feature_offset = 0
 
