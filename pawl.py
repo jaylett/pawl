@@ -213,7 +213,12 @@ def rip_title(device, preset, title, directory, prefix, epnumber):
     if not weird:
         print ''.join(out)
 
-def process_disk(device, directory, prefix, episode_offset=0, feature_offset=0, min_ep_length=15, max_ep_length=60):
+def process_disk(device, directory, prefix, episode_offset=0, feature_offset=0, min_ep_length=None, max_ep_length=None):
+    if min_ep_length==None:
+        min_ep_length = 15
+    if max_ep_length==None:
+        max_ep_length = 60
+    #print "Processing, min = %i, max = %i" % (min_ep_length, max_ep_length, )
     out = drive_handbrake(device, preset, [ '-t', '0'], simple=True) # simple => no dance around processes from python
     if out==None:
         return
@@ -236,7 +241,7 @@ def process_disk(device, directory, prefix, episode_offset=0, feature_offset=0, 
 
     if expected_duration:
         DELTA = expected_duration / 5.0
-        #print "delta is %i" % DELTA
+        #print "expected is %i, delta is %i" % (expected_duration, DELTA, )
 
         end = start+1
         while end<len(titles):
@@ -247,7 +252,7 @@ def process_disk(device, directory, prefix, episode_offset=0, feature_offset=0, 
         start = 0
         end = 0
 
-    #print start, end, len(titles)
+    #print "Episodes are [%i:%i] out of %i" % (start, end, len(titles), )
 
     # Rip episodes as 1x01 etc.; special features as 1x00 etc.
     # Don't include anything over an hour long at all, as this is typically
@@ -259,13 +264,16 @@ def process_disk(device, directory, prefix, episode_offset=0, feature_offset=0, 
     if start > 0 and not ignore_specials:
         for i in range(0, start):
             if titles[i].get_duration() < 60*60 or rip_features:
+                #print "Ripping %i as special feature" % (i, )
                 rip_title(device, preset, titles[i], directory, "%s00 - " % prefix, i+1+feature_offset)
     if not ignore_episodes:
         for i in range(start, end):
+            #print "Ripping %i as episode" % (i, )
             rip_title(device, preset, titles[i], directory, prefix, i-start+1+episode_offset)
     if end < len(titles) and not ignore_specials:
         for i in range(end, len(titles)):
             if titles[i].get_duration() < 60*60 or rip_features:
+                #print "Ripping %i as special feature" % (i, )
                 rip_title(device, preset, titles[i], directory, "%s00 - " % prefix, i-end+start+1+feature_offset)
 
     if weird:
@@ -280,22 +288,29 @@ if __name__ == '__main__':
     parser.add_option('-F', '--include-features', dest='features', help="Rip feature-length episodes (requires ripping special features)", default=False, action='store_true')
     parser.add_option('-E', '--skip-episodes', dest='episodes', help="Don't rip normal episodes", default=True, action='store_false')
     parser.add_option('-S', '--skip-special-features', dest='specials', help="Don't rip special features", default=True, action='store_false')
-    parser.add_option('-m', '--min-ep-length', dest='min_ep_length', help='Minimum episode length (mins, overrides automatic)', default=None, action='store')
-    parser.add_option('-M', '--max-ep-length', dest='max_ep_length', help='Maximum episode length (mins, overrides automatic)', default=None, action='store')
+    parser.add_option('-m', '--min-ep-length', dest='min_ep_length', help='Minimum episode length (mins, overrides automatic)', default=None, action='store', type='int')
+    parser.add_option('-M', '--max-ep-length', dest='max_ep_length', help='Maximum episode length (mins, overrides automatic)', default=None, action='store', type='int')
+    parser.add_option('-l', '--expected-ep-length', dest='ep_length', help='Expected episode length (mins)', default=None, action='store', type='int')
+    parser.add_option('-e', '--expected-episodes', dest='num_episodes', help='Expected number of episodes', default=None, action='store', type='int')
     (options, args) = parser.parse_args()
 
     rip_features = options.features
     ignore_episodes = not options.episodes
     ignore_specials = not options.specials
 
-    if options.doctorwho:
-        # doesn't work for the brief Colin Baker period of 45 minute episodes
-        options.min_ep_length = 20
-        options.max_ep_length = 30
+    if options.ep_length==None:
+        if options.doctorwho:
+            # doesn't work for the brief Colin Baker period of 45
+            # minute episodes
+            ep_length = 30 # ie "half hour"
+        else:
+            # default to hour shows, so -l 30 for half hour
+            ep_length = 60 # ie "hour"
     else:
-        # assume American hour (forces use of -m, -M for sitcoms)
-        options.min_ep_length = 40
-        options.max_ep_length = 60
+        ep_length = options.ep_length
+
+    options.min_ep_length = options.min_ep_length or (2 * ep_length / 3)
+    options.max_ep_length = options.max_ep_length or ep_length
 
     preset = options.preset
     if options.doctorwho:
