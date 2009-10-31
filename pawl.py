@@ -1,9 +1,6 @@
 # pawl: automatically rip TV episodes and special features from a DVD
 # uses Handbrake. Suggest the 'Television' preset is a good one.
 #
-# You want to use it? Set handbrake_cli to the right place. Everything
-# else is configurable on the command line.
-#
 # If you don't like my layouts, hack away. If you want different filenames
 # you're going to have to do some work.
 #
@@ -13,8 +10,6 @@ import optparse
 import os
 import subprocess
 import sys
-
-DEFAULT_PRESET = 'Television'
 
 handbrake_cli = None
 if os.environ.has_key('HANDBRAKE'):
@@ -283,7 +278,7 @@ if __name__ == '__main__':
     parser = optparse.OptionParser()
     parser.add_option('-D', '--doctor-who', dest='doctorwho', help='Rip to Doctor Who layout', default=False, action='store_true')
     parser.add_option('-d', '--device', dest='device', help='Set device', default='/dev/disk2', action='store')
-    parser.add_option('-p', '--preset', dest='preset', help='Override default preset', default=DEFAULT_PRESET, action='store')
+    parser.add_option('-p', '--preset', dest='preset', help='Override default preset', default='Television', action='store')
     parser.add_option('-t', '--test', dest='test', help="Test, don't actually do anything", default=False, action='store_true')
     parser.add_option('-F', '--include-features', dest='features', help="Rip feature-length episodes (requires ripping special features)", default=False, action='store_true')
     parser.add_option('-E', '--skip-episodes', dest='episodes', help="Don't rip normal episodes", default=True, action='store_false')
