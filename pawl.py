@@ -1,5 +1,5 @@
-# pawl: automatically rip TV episodes and special features from a DVD
-# uses Handbrake. Suggest the 'Television' preset is a good one.
+# pawl: automatically rip TV episodes and special features from a DVD,
+# using Handbrake.
 #
 # If you don't like my layouts, hack away. If you want different filenames
 # you're going to have to do some work.
@@ -36,7 +36,8 @@ script = []
 
 # can't be bothered to figure out how to call out to HandBrakeCLI on Mac OS
 # so it doesn't hang instead of exit after ripping
-weird = True
+#weird = True
+weird = False
 
 def mkdir_p(path):
     bits = []
@@ -59,21 +60,19 @@ def drive_handbrake(device, preset, options, test=False, simple=False):
     if weird and not simple:
         script.append(" ".join(map(lambda x: '"%s"' % x, args)))
         return []
+    #print "Running %s" % (args,)
     p = subprocess.Popen(
         args,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT
     )
-    p.wait()
+    outdata = p.communicate()[0]
     if p.returncode!=0:
         print "Erk."
-        print p.stdout.read()
+        print outdata
         return None
     else:
-        #r = p.stdout.read()
-        #print r
-        #return r.split('\n')
-        return p.stdout.readlines()
+        return outdata.split('\n')
 
 class Unicodish:
     def __str__(self):
@@ -193,20 +192,22 @@ def parse_titles(lines):
     return titles
 
 def rip_title(device, preset, title, directory, prefix, epnumber):
+    out_filename = "%s%2.2i.mkv" % (prefix, epnumber,)
     if not weird:
-        print u"Ripping %s" % title
+        print u"Ripping %s as %s" % (title, out_filename)
+    out_filename = os.path.join(directory, out_filename)
     out = drive_handbrake(
         device, preset,
         [
             '-t', str(title.number),
-            '-o', os.path.join(directory, "%s%2.2i.mkv" % (prefix, epnumber,)),
+            '-o', out_filename,
             '-a', title.get_audio_tracks_parameter(),
 #            '--crop', '2:2:2:2', # really somewhat arbitrary attempt...
 #            '-s', title.get_audio_tracks_parameter(),
         ],
     )
-    if not weird:
-        print ''.join(out)
+    #if not weird:
+    #    print ''.join(out)
 
 def process_disk(device, directory, prefix, episode_offset=0, feature_offset=0, min_ep_length=None, max_ep_length=None):
     if min_ep_length==None:
@@ -360,7 +361,12 @@ if __name__ == '__main__':
     else:
         feature_offset = 0
 
-    if options.test:
+    if options.test or not weird:
+        # If we aren't weird (which should be never, but I'm keeping support
+        # until I'm certain), then stdout is ours to play with (if weird,
+        # we use it to display the HandbrakeCLI commands to invoke).
+        #
+        # So use that freedom to give an idea of what's going on.
         print (u"Ripping to %s as %sx..." % (directory, num,)).encode('utf-8')
         if not ignore_episodes:
             print (u"  Episodes from %i" % (episode_offset+1,)).encode('utf-8')
@@ -368,7 +374,7 @@ if __name__ == '__main__':
             print (u"  Special features from %i" % (feature_offset+1,)).encode('utf-8')
         if rip_features:
             print "  Ripping feature length episodes."
-    else:
+    if not options.test:
         if not os.path.exists(directory):
             mkdir_p(directory)
         elif not os.path.isdir(directory):
