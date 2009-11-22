@@ -209,7 +209,7 @@ def rip_title(device, preset, title, directory, prefix, epnumber):
     #if not weird:
     #    print ''.join(out)
 
-def process_disk(device, directory, prefix, episode_offset=0, feature_offset=0, min_ep_length=None, max_ep_length=None):
+def process_disk(device, directory, prefix, episode_offset=0, feature_offset=0, min_ep_length=None, max_ep_length=None, test=False):
     if min_ep_length==None:
         min_ep_length = 15
     if max_ep_length==None:
@@ -220,13 +220,12 @@ def process_disk(device, directory, prefix, episode_offset=0, feature_offset=0, 
         return
     #print out
     titles = parse_titles(out)
-    #for title in titles:
-    #    print title
+
+    if test:
+        for title in titles:
+            print title
         
     # let's try to find the episodes on this disk
-    # it will probably be the first title under 1 hour and over 15 minutes
-    # that also gives us our expected episode length; we then pull until
-    # we get a title of significantly different length.
     start = 0
     expected_duration = None
     while start<len(titles):
@@ -248,7 +247,10 @@ def process_disk(device, directory, prefix, episode_offset=0, feature_offset=0, 
         start = 0
         end = 0
 
-    #print "Episodes are [%i:%i] out of %i" % (start, end, len(titles), )
+    if test:
+        #print "Episodes are [%i:%i] out of %i" % (start, end, len(titles), )
+        print "Episodes are %i-%i out of %i" % (start, end-1, len(titles), )
+        return
 
     # Rip episodes as 1x01 etc.; special features as 1x00 etc.
     # Don't include anything over an hour long at all, as this is typically
@@ -307,6 +309,10 @@ if __name__ == '__main__':
 
     options.min_ep_length = options.min_ep_length or (2 * ep_length / 3)
     options.max_ep_length = options.max_ep_length or ep_length
+
+    if len(args)<2:
+        print "Takes at least two arguments:\n\t<series> <season>\n  or\t<number> <title> (for Doctor Who)\n"
+        sys.exit(1)
 
     preset = options.preset
     if options.doctorwho:
@@ -367,13 +373,17 @@ if __name__ == '__main__':
         # we use it to display the HandbrakeCLI commands to invoke).
         #
         # So use that freedom to give an idea of what's going on.
-        print (u"Ripping to %s as %sx..." % (directory, num,)).encode('utf-8')
+        if options.test:
+            msgstart = u'Would rip'
+        else:
+            msgstart = u'Ripping'
+        print (u"%s to %s as %sx..." % (msgstart, directory, num,)).encode('utf-8')
         if not ignore_episodes:
             print (u"  Episodes from %i" % (episode_offset+1,)).encode('utf-8')
         if not ignore_specials:
             print (u"  Special features from %i" % (feature_offset+1,)).encode('utf-8')
         if rip_features:
-            print "  Ripping feature length episodes."
+            print (u"  %s feature length episodes." % (msgstart, )).encode('utf-8')
     if not options.test:
         if not os.path.exists(directory):
             mkdir_p(directory)
@@ -388,3 +398,13 @@ if __name__ == '__main__':
             options.min_ep_length,
             options.max_ep_length,
             )
+    else:
+        process_disk(
+            options.device,
+            directory,
+            "%sx" % num,
+            episode_offset,
+            feature_offset,
+            options.min_ep_length,
+            options.max_ep_length,
+            test=True)
