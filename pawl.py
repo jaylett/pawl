@@ -28,7 +28,7 @@ else:
         handbrake_cli = 'HandBrakeCLI' # assume it's on the path
         # note that this is the Mac OS X name
 
-rip_features = False
+ignore_features = False
 ignore_episodes = False
 ignore_specials = False
 
@@ -104,7 +104,7 @@ class Title(Unicodish):
         )
         
     def __unicode__(self):
-        return u"Title (%s/%i), %i audio tracks, %i subtitle tracks" % (self.duration, self.get_duration(), len(self.audio), len(self.subtitle),)
+        return u"Title %i (%s/%i), %i audio tracks, %i subtitle tracks" % (self.number, self.duration, self.get_duration(), len(self.audio), len(self.subtitle),)
 
 class Track(Unicodish):
     def __init__(self, *bits):
@@ -209,27 +209,26 @@ def rip_title(device, preset, title, directory, prefix, epnumber):
     #if not weird:
     #    print ''.join(out)
 
-def process_disk(device, directory, prefix, episode_offset=0, feature_offset=0, min_ep_length=None, max_ep_length=None, test=False):
-    if min_ep_length==None:
-        min_ep_length = 15
-    if max_ep_length==None:
-        max_ep_length = 60
-    #print "Processing, min = %i, max = %i" % (min_ep_length, max_ep_length, )
-    out = drive_handbrake(device, preset, [ '-t', '0'], simple=True) # simple => no dance around processes from python
-    if out==None:
-        return
-    #print out
-    titles = parse_titles(out)
+def brute_episode_finder(titles, min_length, max_length):
+    df = max_length - min_length
+    def within_bounds(title):
+        d = title.get_duration()
+        res = d <= max_length and d >= min_length
+        #print d, title.number, res
+        return res
 
-    if test:
-        for title in titles:
-            print title
-        
+    return (
+        filter(within_bounds, titles),
+        filter(lambda t: t.get_duration() < min_length, titles),
+        filter(lambda t: t.get_duration() > max_length, titles),
+    )
+
+def smart_episode_finder(titles, min_length, max_length):
     # let's try to find the episodes on this disk
     start = 0
     expected_duration = None
     while start<len(titles):
-        if titles[start].get_duration() > min_ep_length*60 and titles[start].get_duration() < max_ep_length*60:
+        if titles[start].get_duration() > min_length and titles[start].get_duration() < max_length:
             expected_duration = titles[start].get_duration()
             break
         start += 1
@@ -247,32 +246,73 @@ def process_disk(device, directory, prefix, episode_offset=0, feature_offset=0, 
         start = 0
         end = 0
 
+    specials = titles[:start] + titles[end:]
+
+    return (
+        titles[start:end],
+        filter(lambda t: t.get_duration() <= max_length, specials),
+        filter(lambda t: t.get_duration() > max_length, specials),
+    )
+
+def process_disk(device, directory, prefix, episode_offset=0, feature_offset=0, min_ep_length=None, max_ep_length=None, test=False, episode_finder=smart_episode_finder):
+    if min_ep_length==None:
+        min_ep_length = 15
+    if max_ep_length==None:
+        max_ep_length = 60
+    #print "Processing, min = %i, max = %i" % (min_ep_length, max_ep_length, )
+    out = drive_handbrake(device, preset, [ '-t', '0'], simple=True) # simple => no dance around processes from python
+    if out==None:
+        return
+    #print out
+    titles = parse_titles(out)
+
+    # bulk up the lengths to have them in seconds
+    min_ep_length *= 60
+    max_ep_length *= 60
+
     if test:
-        #print "Episodes are [%i:%i] out of %i" % (start, end, len(titles), )
-        print "Episodes are %i-%i out of %i" % (start, end-1, len(titles), )
+        for title in titles:
+            print title
+
+    (episodes, specials, features,) = episode_finder(titles, min_ep_length, max_ep_length)
+
+    if test:
+        if not ignore_episodes:
+            print "Episodes are %s" % (
+                ', '.join(map(lambda t: str(t.number), episodes)),
+            )
+        if not ignore_specials:
+            print "Specials are %s" % (
+                ', '.join(map(lambda t: str(t.number), specials)),
+            )
+        if not ignore_features:
+            print "Features are %s" % (
+                ', '.join(map(lambda t: str(t.number), features)),
+            )
         return
 
     # Rip episodes as 1x01 etc.; special features as 1x00 etc.
-    # Don't include anything over an hour long at all, as this is typically
+    # Don't include anything over the max episode length, as this is typically
     # the individual episodes shown together as one title.
-    #   rip_features forces > 60 minute titles to be ripped
+    #   ignore_features skips things longer than a single episode
     #      generally, these are "all episodes as one title"
     #   ignore_episodes skips detected episodes (for ripping features from
     #      my earlier attempts when I ignored them)
-    if start > 0 and not ignore_specials:
-        for i in range(0, start):
-            if titles[i].get_duration() < 60*60 or rip_features:
-                #print "Ripping %i as special feature" % (i, )
-                rip_title(device, preset, titles[i], directory, "%s00 - " % prefix, i+1+feature_offset)
+    if not ignore_specials:
+        for title in specials:
+            #print "Ripping %i as special feature" % (i, )
+            rip_title(device, preset, title, directory, "%s00 - " % prefix, 1+feature_offset)
+            feature_offset += 1
     if not ignore_episodes:
-        for i in range(start, end):
+        for title in episodes:
             #print "Ripping %i as episode" % (i, )
-            rip_title(device, preset, titles[i], directory, prefix, i-start+1+episode_offset)
-    if end < len(titles) and not ignore_specials:
-        for i in range(end, len(titles)):
-            if titles[i].get_duration() < 60*60 or rip_features:
-                #print "Ripping %i as special feature" % (i, )
-                rip_title(device, preset, titles[i], directory, "%s00 - " % prefix, i-end+start+1+feature_offset)
+            rip_title(device, preset, title, directory, prefix, 1+episode_offset)
+            episode_offset += 1
+    if not ignore_features:
+        for title in features:
+            #print "Ripping %i as feature" % (i, )
+            rip_title(device, preset, title, directory, "%s00 - " % prefix, 1+feature_offset)
+            feature_offset += 1
 
     if weird:
         print ' && '.join(script) # fixme: and execute it, ideally...
@@ -280,10 +320,11 @@ def process_disk(device, directory, prefix, episode_offset=0, feature_offset=0, 
 if __name__ == '__main__':
     parser = optparse.OptionParser()
     parser.add_option('-D', '--doctor-who', dest='doctorwho', help='Rip to Doctor Who layout', default=False, action='store_true')
+    parser.add_option('-b', '--bludgeon', dest='bludgeon', help='Bludgeon into submission: rip everything episode-length as an episode', default=False, action='store_true')
     parser.add_option('-d', '--device', dest='device', help='Set device', default='/dev/disk2', action='store')
     parser.add_option('-p', '--preset', dest='preset', help='Override default preset', default='Television', action='store')
     parser.add_option('-t', '--test', dest='test', help="Test, don't actually do anything", default=False, action='store_true')
-    parser.add_option('-F', '--include-features', dest='features', help="Rip feature-length episodes (requires ripping special features)", default=False, action='store_true')
+    parser.add_option('-F', '--include-features', dest='features', help="Rip feature-length episodes", default=False, action='store_true')
     parser.add_option('-E', '--skip-episodes', dest='episodes', help="Don't rip normal episodes", default=True, action='store_false')
     parser.add_option('-S', '--skip-special-features', dest='specials', help="Don't rip special features", default=True, action='store_false')
     parser.add_option('-m', '--min-ep-length', dest='min_ep_length', help='Minimum episode length (mins, overrides automatic)', default=None, action='store', type='int')
@@ -292,7 +333,7 @@ if __name__ == '__main__':
     parser.add_option('-e', '--expected-episodes', dest='num_episodes', help='Expected number of episodes', default=None, action='store', type='int')
     (options, args) = parser.parse_args()
 
-    rip_features = options.features
+    ignore_features = not options.features
     ignore_episodes = not options.episodes
     ignore_specials = not options.specials
 
@@ -330,7 +371,7 @@ if __name__ == '__main__':
         num = season
 
     if len(args)>2:
-        episode_offset = int(args[2])
+        episode_offset = int(args[2]) - 1
     elif os.path.isdir(directory):
         # PONDER
         episode_offset = 0
@@ -348,7 +389,7 @@ if __name__ == '__main__':
     else:
         episode_offset = 0
     if len(args)>3:
-        feature_offset = int(args[3])
+        feature_offset = int(args[3]) - 1
     elif os.path.isdir(directory):
         # PONDER
         feature_offset = 0
@@ -382,8 +423,16 @@ if __name__ == '__main__':
             print (u"  Episodes from %i" % (episode_offset+1,)).encode('utf-8')
         if not ignore_specials:
             print (u"  Special features from %i" % (feature_offset+1,)).encode('utf-8')
-        if rip_features:
+        if not ignore_features:
             print (u"  %s feature length episodes." % (msgstart, )).encode('utf-8')
+        if options.bludgeon:
+            print (u"  Bludgeoning: will rip all titles within episode length %i-%i." % (options.min_ep_length, options.max_ep_length,)).encode('utf-8')
+
+    if options.bludgeon:
+        episode_finder = brute_episode_finder
+    else:
+        episode_finder = smart_episode_finder
+
     if not options.test:
         if not os.path.exists(directory):
             mkdir_p(directory)
@@ -397,7 +446,8 @@ if __name__ == '__main__':
             feature_offset,
             options.min_ep_length,
             options.max_ep_length,
-            )
+            episode_finder = episode_finder,
+        )
     else:
         process_disk(
             options.device,
@@ -407,4 +457,6 @@ if __name__ == '__main__':
             feature_offset,
             options.min_ep_length,
             options.max_ep_length,
-            test=True)
+            test=True,
+            episode_finder = episode_finder,
+        )
