@@ -103,6 +103,14 @@ class Title(Unicodish):
             )
         )
         
+    def get_subtitle_tracks_parameter(self):
+        return ','.join(
+            map(
+                lambda x: str(x),
+                range(1, len(self.subtitle)+1)
+            )
+        )
+        
     def __unicode__(self):
         return u"Title %i (%s/%i), %i audio tracks, %i subtitle tracks" % (self.number, self.duration, self.get_duration(), len(self.audio), len(self.subtitle),)
 
@@ -203,7 +211,7 @@ def rip_title(device, preset, title, directory, prefix, epnumber):
             '-o', out_filename,
             '-a', title.get_audio_tracks_parameter(),
 #            '--crop', '2:2:2:2', # really somewhat arbitrary attempt...
-#            '-s', title.get_audio_tracks_parameter(),
+            '-s', title.get_subtitle_tracks_parameter(),
         ],
     )
     #if not weird:
