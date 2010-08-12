@@ -1,10 +1,11 @@
 # pawl: automatically rip TV episodes and special features from a DVD,
-# using Handbrake.
+# using Handbrake. Also caters for films (Handbrake's -L doesn't
+# always work, and you don't get control over adudio & subtitle tracks).
 #
 # If you don't like my layouts, hack away. If you want different filenames
 # you're going to have to do some work.
 #
-# (c) James Aylett 2009
+# (c) James Aylett 2009, 2010
 
 import optparse
 import os
@@ -277,7 +278,7 @@ def smart_episode_finder(titles, min_length, max_length):
         filter(lambda t: t.get_duration() > max_length, specials),
     )
 
-def process_disk(device, directory, prefix, episode_offset=0, feature_offset=0, min_ep_length=None, max_ep_length=None, test=False, episode_finder=smart_episode_finder, feature=False):
+def process_disk(device, directory, prefix, episode_offset=0, feature_offset=0, min_ep_length=None, max_ep_length=None, test=False, episode_finder=smart_episode_finder, feature=False, remove_duplicates=None):
     if min_ep_length==None:
         min_ep_length = 15
     if max_ep_length==None:
@@ -297,7 +298,9 @@ def process_disk(device, directory, prefix, episode_offset=0, feature_offset=0, 
         for title in titles:
             print title
 
-    (episodes, specials, features,) = episode_finder(titles, min_ep_length, max_ep_length)
+    if remove_duplicates==None:
+        remove_duplicates = lambda x: x
+    (episodes, specials, features,) = map(remove_duplicates, episode_finder(titles, min_ep_length, max_ep_length))
 
     if test:
         if not ignore_episodes:
@@ -346,7 +349,7 @@ def process_disk(device, directory, prefix, episode_offset=0, feature_offset=0, 
         # rather than just stomping over the top of them.
         if feature and len(features)==1 and episode_offset==0:
             #print "Ripping %i as feature" % (i, )
-            rip_title(device, preset, title, directory, prefix)
+            rip_title(device, preset, features[0], directory, prefix)
         else:
             for title in features:
                 #print "Ripping %i as feature" % (i, )
@@ -375,6 +378,7 @@ if __name__ == '__main__':
     parser.add_option('-M', '--max-ep-length', dest='max_ep_length', help='Maximum episode length (mins, overrides automatic)', default=None, action='store', type='int')
     parser.add_option('-l', '--expected-ep-length', dest='ep_length', help='Expected episode length (mins)', default=None, action='store', type='int')
     parser.add_option('-e', '--expected-episodes', dest='num_episodes', help='Expected number of episodes', default=None, action='store', type='int')
+    parser.add_option('-r', '--remove-duplicates', dest='dedupe', help="Don't rip suspected duplicates", default=False, action='store_true')
     (options, args) = parser.parse_args()
 
     ignore_episodes = not options.episodes
@@ -443,6 +447,11 @@ if __name__ == '__main__':
         for file in os.listdir(directory):
             try:
                 if options.feature:
+                    if u' - Special ' in file:
+                        # don't count these, they don't collide
+                        # (well, except in extremely unusual
+                        # circumstances)
+                        continue
                     # episode offset used for the actual features, in case
                     # there are multiple versions or something (eg:
                     # Blade Runner Ultimate Edition) across multiple
@@ -519,7 +528,10 @@ if __name__ == '__main__':
         if not ignore_specials:
             print (u"  Special features from %i" % (feature_offset+1,)).encode('utf-8')
         if not ignore_features:
-            print (u"  %s feature length episodes." % (msgstart, )).encode('utf-8')
+            if options.feature:
+                print (u"  Features from %i" % (episode_offset+1, )).encode('utf-8')
+            else:
+                print (u"  %s feature length episodes." % (msgstart, )).encode('utf-8')
         if options.bludgeon:
             print (u"  Bludgeoning: will rip all titles within episode length %i-%i." % (options.min_ep_length, options.max_ep_length,)).encode('utf-8')
 
@@ -540,18 +552,26 @@ if __name__ == '__main__':
             mkdir_p(directory)
         elif not os.path.isdir(directory):
             print (u"%s is not a directory." % directory).encode('utf-8')
-        process_disk(
-            options.device,
-            directory,
-            prefix,
-            episode_offset,
-            feature_offset,
-            options.min_ep_length,
-            options.max_ep_length,
-            episode_finder = episode_finder,
-            feature=options.feature,
-        )
+
+    if options.dedupe:
+        remove_duplicates = None
     else:
+        remove_duplicates = None
+
+    process_disk(
+        options.device,
+        directory,
+        prefix,
+        episode_offset,
+        feature_offset,
+        options.min_ep_length,
+        options.max_ep_length,
+        test=True,
+        episode_finder = episode_finder,
+        feature=options.feature,
+        remove_duplicates=remove_duplicates,
+    )
+    if not options.test:
         process_disk(
             options.device,
             directory,
@@ -560,7 +580,7 @@ if __name__ == '__main__':
             feature_offset,
             options.min_ep_length,
             options.max_ep_length,
-            test=True,
             episode_finder = episode_finder,
             feature=options.feature,
-        )
+            remove_duplicates=remove_duplicates,
+            )
