@@ -278,6 +278,23 @@ def smart_episode_finder(titles, min_length, max_length):
         filter(lambda t: t.get_duration() > max_length, specials),
     )
 
+_dupe_store = None
+def simple_remove_duplicates(titles):
+    """
+    Remove any adjacent titles with exactly the same length.
+    """
+    global _dupe_store
+    _dupe_store = None
+
+    def uniq_once(x):
+        global _dupe_store
+        if x.duration==_dupe_store:
+            return False
+        else:
+            _dupe_store = x.duration
+            return True
+    return filter(uniq_once, titles)
+
 def process_disk(device, directory, prefix, episode_offset=0, feature_offset=0, min_ep_length=None, max_ep_length=None, test=False, episode_finder=smart_episode_finder, feature=False, remove_duplicates=None):
     if min_ep_length==None:
         min_ep_length = 15
@@ -372,6 +389,7 @@ if __name__ == '__main__':
     parser.add_option('-t', '--test', dest='test', help="Test, don't actually do anything", default=False, action='store_true')
     parser.add_option('-f', '--feature', dest='feature', help="Rip to Feature layout", default=False, action='store_true')
     parser.add_option('-F', '--include-features', dest='features', help="Rip feature-length episodes", default=None, action='store_true')
+    parser.add_option('', '--skip-features', dest='features', help="Don't rip feature-length episodes", default=None, action='store_false')
     parser.add_option('-E', '--skip-episodes', dest='episodes', help="Don't rip normal episodes", default=True, action='store_false')
     parser.add_option('-S', '--skip-special-features', dest='specials', help="Don't rip special features", default=True, action='store_false')
     parser.add_option('-m', '--min-ep-length', dest='min_ep_length', help='Minimum episode length (mins, overrides automatic)', default=None, action='store', type='int')
@@ -460,17 +478,17 @@ if __name__ == '__main__':
                     # Format here is just <name> 01, etc.
                     # (or just <name> if there's only one, in which case
                     # subsequent ones should start at 02).
-                    file = file.split('.')[0]
-                    bits = file.split(' ')
-                    if len(bits)==1:
+                    file = file.rsplit('.')[-2]
+                    bits = file.rsplit(' ', 1)
+                    try:
+                        if episode_offset < int(bits[-1]):
+                            episode_offset = int(bits[-1])
+                    except ValueError:
                         # existing single feature; set next number to 2
                         # so future single-feature disk rips fall in line
                         episode_offset = 1
-                    else:
-                        if episode_offset < int(bits[-1]):
-                            episode_offset = int(bits[-1])
                 else:
-                    file = file.split('.')[0]
+                    file = file.rsplit('.')[-2]
                     bits = file.split('x')
                     if len(bits)>1:
                         ep_bits = bits[1].split('-')
@@ -488,7 +506,7 @@ if __name__ == '__main__':
         feature_offset = 0
         for file in os.listdir(directory):
             try:
-                file = file.split('.')[0]
+                file = file.rsplit('.')[-2]
                 if options.feature:
                     bits = file.split(' Special ')
                 else:
@@ -554,7 +572,7 @@ if __name__ == '__main__':
             print (u"%s is not a directory." % directory).encode('utf-8')
 
     if options.dedupe:
-        remove_duplicates = None
+        remove_duplicates = simple_remove_duplicates
     else:
         remove_duplicates = None
 
