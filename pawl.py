@@ -320,15 +320,15 @@ def process_disk(device, directory, prefix, episode_offset=0, feature_offset=0, 
     (episodes, specials, features,) = map(remove_duplicates, episode_finder(titles, min_ep_length, max_ep_length))
 
     if test:
-        if not ignore_episodes:
+        if not ignore_episodes and len(episodes)>0:
             print "Episodes are %s" % (
                 ', '.join(map(lambda t: str(t.number), episodes)),
             )
-        if not ignore_specials:
+        if not ignore_specials and len(specials)>0:
             print "Specials are %s" % (
                 ', '.join(map(lambda t: str(t.number), specials)),
             )
-        if not ignore_features:
+        if not ignore_features and len(features)>0:
             print "Features are %s" % (
                 ', '.join(map(lambda t: str(t.number), features)),
             )
@@ -374,7 +374,7 @@ def process_disk(device, directory, prefix, episode_offset=0, feature_offset=0, 
                     rip_title(device, preset, title, directory, "%s - " % prefix, 1+episode_offset)
                     episode_offset += 1
                 else:
-                    rip_title(device, preset, title, directory, "%00 - " % prefix, 1+feature_offset)
+                    rip_title(device, preset, title, directory, "%s00 - " % prefix, 1+feature_offset)
                     feature_offset += 1
 
     if weird:
