@@ -397,6 +397,7 @@ if __name__ == '__main__':
     parser.add_option('-l', '--expected-ep-length', dest='ep_length', help='Expected episode length (mins)', default=None, action='store', type='int')
     parser.add_option('-e', '--expected-episodes', dest='num_episodes', help='Expected number of episodes', default=None, action='store', type='int')
     parser.add_option('-r', '--remove-duplicates', dest='dedupe', help="Don't rip suspected duplicates", default=False, action='store_true')
+    parser.add_option('-o', '--output-root', dest='output_root', help="Where to put the output files", default=None, action='store')
     (options, args) = parser.parse_args()
 
     ignore_episodes = not options.episodes
@@ -442,19 +443,28 @@ if __name__ == '__main__':
         # Doctor Who: give number of story and name as two args
         num = args[0]
         name = args[1]
-        directory = os.path.join('/Volumes/TV#1/Media/Doctor Who/Classic/', "%s - %s" % (num, name,))
+        if not options.output_root:
+            directory = os.path.join('/Volumes/TV#1/Media/Doctor Who/Classic/', "%s - %s" % (num, name,))
+        else:
+            directory = os.path.join(options.output_root, 'Doctor Who/Classic/', "%s - %s" % (num, name,))
     elif options.feature:
         # Feature; just a name
         num = None
         name = args[0]
-        directory = os.path.join('/Volumes/2T/Media/Features/', name)
+        if not options.output_root:
+            directory = os.path.join('/Volumes/2T/Media/Features/', name)
+        else:
+            directory = os.path.join(options.output_root, 'Features/', name)
     else:
         # TV: give name of series and season as two args, first episode number
         # as optional third (else try to ponder from directory), first
         # feature number as optional fourth (else try to ponder from directory)
         series = args[0]
         season = int(args[1])
-        directory = os.path.join('/Volumes/TV#1/Media/TV Shows/', series, 'Season %i' % season)
+        if not options.output_root:
+            directory = os.path.join('/Volumes/TV#1/Media/TV Shows/', series, 'Season %i' % season)
+        else:
+            directory = os.path.join(options.output_root, 'TV Shows/', series, 'Season %i' % season)
         num = season
 
     if len(args)>2:
